@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHATS</title>
+    <link rel="stylesheet" href="estilos.css">
+    
+</head>
+<body>
+    <div class="container">
+        <div class="chat-container">
+            <div class="chat-header">
+                CHATS
+                <div class="form-group">
+                    <label for="search">Buscar un usuario:</label>
+                    <input
+                        type="text"
+                        class="form-control"
+                        id="search"
+                        placeholder="Buscar un usuario..."
+                        oninput="handleSearch(event)"
+                    >
+                </div>
+            </div>
+            <ul class="chat-list" id="chat-list">
+            </ul>
+        </div>
+        <div id="welcome-container">
+            <h1>Bienvenidos a Wahapp</h1>
+            <p>Selecciona un chat para comenzar a conversar.</p>
+        </div>
+    </div>
+    <script src="funcionalidades.js"></script>
+    <script src="chat.js"></script>
+    
+</body>
+</html>

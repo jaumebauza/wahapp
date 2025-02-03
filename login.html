@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+    <style>
+        body {
+            background-color: #D9FDD3;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        .login-container {
+            max-width: 400px;
+            margin: 100px auto;
+            background-color: #ffffff;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        .login-header {
+            background-color: #075E54;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .login-header h2 {
+            color: #ffffff;
+            font-size: 28px;
+            font-weight: bold;
+            margin: 0;
+        }
+
+        .login-header p {
+            color: #ECE5DD;
+            margin: 5px 0 0;
+        }
+
+        .login-body {
+            padding: 30px;
+        }
+
+        .form-group label {
+            font-weight: bold;
+            color: #075E54;
+        }
+
+        .form-control {
+            border-radius: 10px;
+        }
+
+        .btn-primary {
+            background-color: #075E54;
+            border-color: #075E54;
+            border-radius: 10px;
+            padding: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+
+        .btn-primary:hover {
+            background-color: #064C44;
+            border-color: #064C44;
+        }
+
+        .login-footer {
+            background-color: #075E54;
+            color: #ffffff;
+            text-align: center;
+            padding: 15px;
+            font-size: 14px;
+        }
+
+        .login-footer a {
+            color: #34B7F1;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .login-footer a:hover {
+            text-decoration: underline;
+        }
+
+        .whatsapp-logo {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 10px;
+            background: url('https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg') no-repeat center center;
+            background-size: cover;
+        }
+
+    </style>
+    <script>
+    async function handleLogin(event) {
+        event.preventDefault();
+
+        const username = document.getElementById("username").value;
+        const password = document.getElementById("password").value;
+
+        try {
+            const response = await fetch('http://localhost:8000/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ usuari: username, pwd: password }),
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.message === "Login correcto") {
+                alert("¡Login exitoso! Redirigiendo...");
+                localStorage.setItem("loggedInUser", username);
+                window.location.href = "usuarios.html";
+            } else {
+                alert(result.message);
+            }
+        } catch (error) {
+            console.error("Error al realizar la solicitud:", error);
+            alert("Ocurrió un error inesperado.");
+        }
+    }
+    </script>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <div class="whatsapp-logo"></div>
+            <h2>Wahapp Login</h2>
+            <p>Entra amb el teu compte</p>
+        </div>
+        <div class="login-body">
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">Usuari</label>
+                    <input type="text" class="form-control" id="username" name="username" placeholder="Introdueix el teu usuari" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Contrasenya</label>
+                    <input type="password" class="form-control" id="password" name="password" placeholder="Introdueix la teva contrasenya" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Inicia sessió</button>
+            </form>
+        </div>
+        <div class="login-footer">
+            <p>Gràcies per utilitzar Wahapp!</p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById("loginForm").addEventListener("submit", handleLogin);
+    </script>
+</body>
+</html>
