@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 24-01-2025 a las 18:24:58
+-- Tiempo de generación: 11-02-2025 a las 18:51:04
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -24,6 +24,51 @@ SET time_zone = "+00:00";
 -- --------------------------------------------------------
 
 --
+-- Estructura de tabla para la tabla `grups`
+--
+
+CREATE TABLE `grups` (
+  `id` int(11) NOT NULL,
+  `nom` varchar(100) NOT NULL,
+  `descripcio` text DEFAULT NULL,
+  `data_creacio` datetime NOT NULL DEFAULT current_timestamp(),
+  `creador_id` int(11) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `grups`
+--
+
+INSERT INTO `grups` (`id`, `nom`, `descripcio`, `data_creacio`, `creador_id`) VALUES
+(1, 'Grup Amics', 'Un grup per xatejar amb amics', '2025-01-27 16:06:23', NULL),
+(2, 'Grup Projecte', 'Grup per col·laborar en projectes', '2025-01-27 16:06:23', NULL),
+(3, 'Grup prova', 'prova', '2025-01-27 16:08:15', NULL),
+(4, 'hola', 'hola', '2025-01-27 16:14:55', NULL),
+(5, 'prova admin', 'Descripción del nuevo grupo', '2025-01-30 18:07:12', NULL),
+(6, 'a', 'ab', '2025-01-31 18:58:49', 5),
+(7, 'b', 'bb', '2025-01-31 19:00:07', 5),
+(8, 'jo', 'jo', '2025-02-06 18:42:52', NULL),
+(9, 'tu', 'tu', '2025-02-06 19:43:28', 0),
+(10, 'tu', 'tu', '2025-02-06 19:44:54', 0),
+(11, 'tu', 'tu', '2025-02-06 19:48:39', 0),
+(12, 'tu', 'tu', '2025-02-06 20:02:54', NULL),
+(13, 'jjjjjjjjjjjjjjjjjjjj', '', '2025-02-10 16:31:43', NULL),
+(14, 'aaaaaaaaaaaaaaaaaa', '', '2025-02-10 16:58:48', NULL),
+(15, 'aaaaaaaaaaaaaaaaaa', '', '2025-02-10 18:21:55', NULL),
+(16, 'aaaaaaaaaaaaaaaaaa', '', '2025-02-10 18:40:17', NULL),
+(17, 'aaaaaaaaaaaaaaaaaa', '', '2025-02-10 18:47:22', NULL),
+(18, 'aaaaaaaaaaaaaaaaaa', '', '2025-02-10 18:51:16', NULL),
+(19, 'jjjjjjjjjjjjjjjjjjjj', '', '2025-02-10 20:26:43', NULL),
+(20, 'ggggg', 'ggggg', '2025-02-10 20:45:47', NULL),
+(21, 'jo', 'vvvvvvvvv', '2025-02-10 20:46:14', NULL),
+(22, 'aaaaaaaaaaaaaaaaaa', '', '2025-02-11 17:49:14', NULL),
+(23, 'aaaaaaaaaaaaaaaaaa', '', '2025-02-11 17:52:40', NULL),
+(24, 'aaaaaaaaaaaaaaaaaa', ',k,', '2025-02-11 17:52:51', NULL),
+(25, 'aaaaaaaaaaaaaaaaaa', '', '2025-02-11 17:54:15', NULL);
+
+-- --------------------------------------------------------
+
+--
 -- Estructura de tabla para la tabla `missatgesamics`
 --
 
@@ -32,17 +77,41 @@ CREATE TABLE `missatgesamics` (
   `emisor` int(11) NOT NULL,
   `receptor` int(11) NOT NULL,
   `missatge` text NOT NULL,
-  `data_hora` datetime NOT NULL DEFAULT current_timestamp()
+  `data_hora` datetime NOT NULL DEFAULT current_timestamp(),
+  `estat` varchar(10) DEFAULT 'enviat'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Volcado de datos para la tabla `missatgesamics`
 --
 
-INSERT INTO `missatgesamics` (`id`, `emisor`, `receptor`, `missatge`, `data_hora`) VALUES
-(1, 1, 2, 'Hola! Com estàs?', '2025-01-24 18:21:24'),
-(2, 2, 1, 'Bé i tu?', '2025-01-24 18:21:24'),
-(3, 1, 2, 'Perfecte, gràcies!', '2025-01-24 18:21:24');
+INSERT INTO `missatgesamics` (`id`, `emisor`, `receptor`, `missatge`, `data_hora`, `estat`) VALUES
+(1, 1, 2, 'Hola! Com estàs?', '2025-01-27 15:34:42', 'enviat'),
+(2, 2, 1, 'Bé! I tu?', '2025-01-27 15:34:42', 'enviat'),
+(3, 1, 2, 'Perfecte, gràcies!', '2025-01-27 15:34:42', 'enviat'),
+(4, 1, 2, 'Hola, ¿cómo estás?', '2025-01-27 15:55:32', 'enviat'),
+(5, 1, 2, 'Hola! Com estàs?', '2025-01-27 16:48:40', 'enviat'),
+(6, 2, 1, 'Bé, gràcies! I tu?', '2025-01-27 16:48:40', 'rebut'),
+(7, 1, 2, 'Tot perfecte!', '2025-01-27 16:48:40', 'llegit'),
+(12, 5, 3, 'Hola', '2025-02-06 17:24:32', 'enviat'),
+(22, 5, 3, 'Hola', '2025-02-06 17:24:32', 'enviat'),
+(24, 3, 5, 'adeu', '2025-02-06 18:07:30', 'enviat'),
+(25, 5, 3, 'hola', '2025-02-10 18:16:25', 'enviat'),
+(26, 5, 14, 'hola', '2025-02-10 18:19:02', 'enviat'),
+(27, 5, 1, 'hola', '2025-02-10 18:21:44', 'enviat'),
+(28, 5, 3, 'hola', '2025-02-10 18:33:43', 'enviat'),
+(29, 5, 1, 'hola', '2025-02-10 18:33:48', 'enviat'),
+(30, 5, 3, 'hola', '2025-02-10 18:39:05', 'enviat'),
+(31, 5, 3, 'adeu', '2025-02-10 18:39:14', 'enviat'),
+(32, 5, 3, 'ye', '2025-02-10 18:39:51', 'enviat'),
+(33, 5, 3, 'ey', '2025-02-10 18:48:08', 'enviat'),
+(34, 5, 3, 'adeu', '2025-02-10 18:49:11', 'enviat'),
+(35, 5, 11, 'hola', '2025-02-10 18:59:35', 'enviat'),
+(36, 5, 20, 'adeu', '2025-02-10 19:04:40', 'enviat'),
+(37, 5, 3, 'ei', '2025-02-10 19:45:57', 'enviat'),
+(38, 5, 6, 'adeu', '2025-02-10 20:34:18', 'enviat'),
+(39, 5, 6, 'ey', '2025-02-10 20:38:01', 'enviat'),
+(40, 5, 3, 's', '2025-02-11 16:48:06', 'enviat');
 
 -- --------------------------------------------------------
 
@@ -90,9 +159,65 @@ INSERT INTO `usuarisclase` (`id`, `username`, `password`) VALUES
 (26, 'joanvicens', 'scrypt:32768:8:1$0RKG9sGcO7zed6Zg$74790cfbe32c1705d6c1ad8f2e0a91fc7a135fffc5ebe36d7f75e8c343d755787f53700332e3d5f1e07c1a6132932296e628f2f22ccb02557f0dfb58422ac61e'),
 (27, 'yukhangwong', 'scrypt:32768:8:1$bOcaeA1ZRFGmCrqT$a51dbdcf5738fd15c7ceaf5c7bafe3d1ad84fb3aaeae35667c694a1e8d8188cc58b9581992e5f503edf813916a227a7709e9148cf5c9f38e42e28892730ebc0d');
 
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `usuaris_grups`
+--
+
+CREATE TABLE `usuaris_grups` (
+  `id` int(11) NOT NULL,
+  `id_grup` int(11) NOT NULL,
+  `id_usuari` int(11) NOT NULL,
+  `data_inici` datetime NOT NULL DEFAULT current_timestamp(),
+  `usuari_id` int(11) DEFAULT NULL,
+  `grup_id` int(11) DEFAULT NULL,
+  `es_admin` tinyint(1) DEFAULT 0,
+  `usuari_afegeix_id` int(11) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `usuaris_grups`
+--
+
+INSERT INTO `usuaris_grups` (`id`, `id_grup`, `id_usuari`, `data_inici`, `usuari_id`, `grup_id`, `es_admin`, `usuari_afegeix_id`) VALUES
+(2, 2, 6, '2025-01-28 11:30:00', NULL, NULL, 0, NULL),
+(3, 1, 7, '2025-01-29 09:00:00', NULL, NULL, 0, NULL),
+(4, 3, 8, '2025-01-29 15:45:00', NULL, NULL, 0, NULL),
+(11, 1, 3, '2025-01-30 18:00:59', NULL, NULL, 0, NULL),
+(12, 6, 5, '2025-01-31 18:58:49', NULL, NULL, 1, NULL),
+(14, 7, 3, '2025-01-31 19:08:39', NULL, NULL, 0, 5),
+(15, 7, 24, '2025-01-31 19:41:37', NULL, NULL, 0, 5),
+(16, 7, 2, '2025-01-31 19:45:26', NULL, NULL, 0, 5),
+(17, 9, 0, '2025-02-06 19:43:28', NULL, NULL, 1, NULL),
+(18, 10, 0, '2025-02-06 19:44:54', NULL, NULL, 1, NULL),
+(19, 11, 0, '2025-02-06 19:48:39', NULL, NULL, 1, NULL),
+(21, 12, 26, '2025-02-07 18:15:22', NULL, NULL, 0, NULL),
+(22, 12, 3, '2025-02-07 18:30:59', NULL, NULL, 0, NULL),
+(23, 12, 20, '2025-02-07 18:31:21', NULL, NULL, 0, NULL),
+(24, 12, 0, '2025-02-07 20:33:39', NULL, NULL, 0, NULL),
+(25, 12, 1, '2025-02-07 20:38:14', NULL, NULL, 0, NULL),
+(26, 7, 0, '2025-02-10 16:14:25', NULL, NULL, 0, NULL),
+(27, 7, 10, '2025-02-10 16:27:15', NULL, NULL, 0, NULL),
+(28, 6, 0, '2025-02-10 16:45:48', NULL, NULL, 0, NULL),
+(30, 14, 0, '2025-02-10 16:58:58', NULL, NULL, 0, NULL),
+(31, 6, 1, '2025-02-10 18:40:02', NULL, NULL, 0, NULL),
+(34, 6, 2, '2025-02-10 18:51:02', NULL, NULL, 0, NULL),
+(36, 19, 5, '2025-02-10 20:26:43', NULL, NULL, 1, NULL),
+(37, 6, 3, '2025-02-10 20:33:43', NULL, NULL, 0, NULL),
+(40, 19, 0, '2025-02-11 16:27:13', NULL, NULL, 0, NULL),
+(41, 19, 1, '2025-02-11 16:27:19', NULL, NULL, 0, NULL),
+(44, 25, 5, '2025-02-11 17:54:15', NULL, NULL, 1, NULL);
+
 --
 -- Índices para tablas volcadas
 --
+
+--
+-- Indices de la tabla `grups`
+--
+ALTER TABLE `grups`
+  ADD PRIMARY KEY (`id`);
 
 --
 -- Indices de la tabla `missatgesamics`
@@ -109,14 +234,34 @@ ALTER TABLE `usuarisclase`
   ADD PRIMARY KEY (`id`);
 
 --
+-- Indices de la tabla `usuaris_grups`
+--
+ALTER TABLE `usuaris_grups`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `id_grup` (`id_grup`),
+  ADD KEY `id_usuari` (`id_usuari`);
+
+--
 -- AUTO_INCREMENT de las tablas volcadas
 --
+
+--
+-- AUTO_INCREMENT de la tabla `grups`
+--
+ALTER TABLE `grups`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=26;
 
 --
 -- AUTO_INCREMENT de la tabla `missatgesamics`
 --
 ALTER TABLE `missatgesamics`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=41;
+
+--
+-- AUTO_INCREMENT de la tabla `usuaris_grups`
+--
+ALTER TABLE `usuaris_grups`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=45;
 
 --
 -- Restricciones para tablas volcadas
@@ -128,6 +273,13 @@ ALTER TABLE `missatgesamics`
 ALTER TABLE `missatgesamics`
   ADD CONSTRAINT `fk_emisor` FOREIGN KEY (`emisor`) REFERENCES `usuarisclase` (`id`),
   ADD CONSTRAINT `fk_receptor` FOREIGN KEY (`receptor`) REFERENCES `usuarisclase` (`id`);
+
+--
+-- Filtros para la tabla `usuaris_grups`
+--
+ALTER TABLE `usuaris_grups`
+  ADD CONSTRAINT `usuaris_grups_ibfk_1` FOREIGN KEY (`id_grup`) REFERENCES `grups` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `usuaris_grups_ibfk_2` FOREIGN KEY (`id_usuari`) REFERENCES `usuarisclase` (`id`) ON DELETE CASCADE;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

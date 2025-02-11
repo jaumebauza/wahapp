@@ -5,15 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CHATS</title>
     <link rel="stylesheet" href="estilos.css">
-    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 <body>
-    <div class="container">
+    <script>
+        document.body.style.zoom = "75%";
+    </script>
+    <div class="container chat-view">
         <div class="chat-container">
             <div class="chat-header">
-                CHATS
+                <img src="whatsapp-logo.webp" alt="WhatsApp Logo" class="logo">
+                <h1>CHATS</h1>
                 <div class="form-group">
-                    <label for="search">Buscar un usuario:</label>
+                    <label for="search"><i class="fas fa-search"></i></label>
                     <input
                         type="text"
                         class="form-control"
@@ -22,17 +27,19 @@
                         oninput="handleSearch(event)"
                     >
                 </div>
+                <button class="settings-button" onclick="cargarAjustes()"><i class="fas fa-cog"></i> Ajustes</button>
             </div>
-            <ul class="chat-list" id="chat-list">
-            </ul>
+            <ul class="chat-list" id="chat-list"></ul>
         </div>
         <div id="welcome-container">
-            <h1>Bienvenidos a Wahapp</h1>
-            <p>Selecciona un chat para comenzar a conversar.</p>
+            <img src="whatsapp-logo.webp" alt="WhatsApp Logo" class="logo small-logo">
+            <h1>¡Bienvenidos a Wahapp!</h1>
+            <p>Selecciona un chat para empezar a conversar.</p>
         </div>
+        <div id="user-info"></div>
+        <div id="user-name"></div>
     </div>
+
     <script src="funcionalidades.js"></script>
-    <script src="chat.js"></script>
-    
 </body>
 </html>

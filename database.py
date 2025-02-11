@@ -17,3 +17,4 @@ def get_db_connection():
     except pymysql.MySQLError as e:
         print("Error de connexió amb la base de dades:", e)
         return None
+    
