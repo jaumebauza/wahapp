@@ -2,15 +2,13 @@ import pymysql
 
 host = 'localhost'
 user = 'root'
-password = ''
-database = 'whatsapp2425'
+database = 'wahap'
 
 def get_db_connection():
     try:
         connection = pymysql.connect(
             host=host,
             user=user,
-            password=password,
             database=database
         )
         return connection

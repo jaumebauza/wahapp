@@ -64,6 +64,10 @@ class UserLogin(BaseModel):
     usuari: str
     pwd: str
 
+class MensajeGrup(BaseModel):
+    id_grup: int
+    missatge: str
+
 class User:
     def __init__(self, username):
         self.username = username
@@ -74,9 +78,10 @@ class User:
 
     def comprovaUsuari(self, pwd):
         try:
-            with pymysql.connect(host='localhost',
-                                 user='root',
-                                 db='whatsapp2425',
+            with pymysql.connect(host='192.168.193.133',
+                                 user='pereserra',
+                                 password = '20550359C',
+                                 db='wahap',
                                  charset='utf8mb4',
                                  autocommit=True,
                                  cursorclass=pymysql.cursors.DictCursor) as db:
@@ -119,9 +124,10 @@ async def login(data: dict):  # Se cambió `UserLogin` por un diccionario para s
     
 def get_db_connection():
     try:
-        return pymysql.connect(host='localhost',
-                               user='root',
-                               db='whatsapp2425',
+        return pymysql.connect(host='192.168.193.133',
+                               user='pereserra',
+                               password = '20550359C',
+                               db='wahap',
                                charset='utf8mb4',
                                autocommit=True,
                                cursorclass=pymysql.cursors.DictCursor)
@@ -512,6 +518,69 @@ def enviar_missatge(mensaje: Mensaje):
         print(f"❌ Error enviando mensaje: {e}")
         raise HTTPException(status_code=500, detail=f"Error enviando mensaje: {e}")
     
+@app.post("/enviar_missatge_grup")
+def enviar_missatge_grup(mensaje: MensajeGrup, username: str = Depends(get_current_user)):
+    conn = get_db_connection()
+    if conn is None:
+        raise HTTPException(status_code=500, detail="No es pot connectar a la base de dades")
+
+    try:
+        cursor = conn.cursor()
+
+        # Obtener el ID del usuario que envía el mensaje
+        cursor.execute("SELECT id FROM usuarisclase WHERE username = %s", (username,))
+        usuari_id = cursor.fetchone()['id']
+
+        # Verificar si el usuario pertenece al grupo
+        cursor.execute("SELECT * FROM usuaris_grups WHERE id_usuari = %s AND id_grup = %s", (usuari_id, mensaje.id_grup))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=403, detail="No tens permisos per enviar missatges a aquest grup")
+
+        # Insertar el mensaje en la tabla missatgesgrup
+        query = "INSERT INTO missatgesgrup (id_grup, id_usuari, missatge) VALUES (%s, %s, %s)"
+        cursor.execute(query, (mensaje.id_grup, usuari_id, mensaje.missatge))
+        conn.commit()
+
+        return {"success": "Missatge enviat correctament"}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Error al enviar el missatge: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.get("/recibir_missatges_grup")
+def recibir_missatges_grup(id_grup: int, username: str = Depends(get_current_user)):
+    conn = get_db_connection()
+    if conn is None:
+        raise HTTPException(status_code=500, detail="No es pot connectar a la base de dades")
+
+    try:
+        cursor = conn.cursor()
+
+        # Verificar si el usuario pertenece al grupo
+        cursor.execute("SELECT * FROM usuaris_grups WHERE id_usuari = (SELECT id FROM usuarisclase WHERE username = %s) AND id_grup = %s", (username, id_grup))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=403, detail="No tens permisos per veure els missatges d'aquest grup")
+
+        # Obtener los mensajes del grupo
+        query = """
+            SELECT mg.id, u.username as emisor, mg.missatge, mg.data_hora 
+            FROM missatgesgrup mg
+            JOIN usuarisclase u ON mg.id_usuari = u.id
+            WHERE mg.id_grup = %s
+            ORDER BY mg.data_hora ASC
+        """
+        cursor.execute(query, (id_grup,))
+        missatges = cursor.fetchall()
+
+        return missatges
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al rebre els missatges: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
 # Endpoint para obtener los miembros de un grupo
 @app.get("/grups/{grup_id}/membres")
 def obtenir_membres(grup_id: int, username: str = Depends(get_current_user)):
@@ -523,7 +592,7 @@ def obtenir_membres(grup_id: int, username: str = Depends(get_current_user)):
         with conn.cursor() as cursor:
             # Verificar si el usuario está en el grupo
             cursor.execute("""
-                SELECT u.username, ug.es_admin 
+                SELECT u.username, ug.es_admin, u.id 
                 FROM usuaris_grups ug
                 JOIN usuarisclase u ON ug.id_usuari = u.id
                 WHERE ug.id_grup = %s
@@ -711,3 +780,128 @@ def listar_imagenes():
         return imagenes
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al listar las imágenes: {e}")
+    
+@app.post("/grups/{grup_id}/fer_admin")
+async def fer_admin(grup_id: int, request: Request, username: str = Depends(get_current_user)):
+    conn = get_db_connection()
+    if conn is None:
+        raise HTTPException(status_code=500, detail="No es pot connectar a la base de dades")
+
+    try:
+        data = await request.json()  # Parsear el cuerpo de la solicitud
+        usuari_id = data.get("usuari_id")  # Obtener el usuari_id del cuerpo de la solicitud
+
+        if not usuari_id:
+            raise HTTPException(status_code=400, detail="Falta l'ID de l'usuari")
+
+        if usuari_id == 0:
+            raise HTTPException(status_code=400, detail="ID de usuari no válido")  # Validación del id = 0
+
+        with conn.cursor() as cursor:
+            # Verificar si el usuario que hace la solicitud es administrador del grupo
+            cursor.execute(""" 
+                SELECT es_admin 
+                FROM usuaris_grups 
+                WHERE id_usuari = (SELECT id FROM usuarisclase WHERE username = %s) 
+                AND id_grup = %s
+            """, (username, grup_id))
+            es_admin = cursor.fetchone()
+
+            if not es_admin or not es_admin['es_admin']:
+                raise HTTPException(status_code=403, detail="No tens permisos per fer admin a un usuari")
+
+            # Actualizar el usuario a admin
+            cursor.execute("""
+                UPDATE usuaris_grups 
+                SET es_admin = TRUE 
+                WHERE id_usuari = %s AND id_grup = %s
+            """, (usuari_id, grup_id))
+            conn.commit()
+
+            return {"success": "L'usuari ara és admin del grup"}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Error al fer admin a l'usuari: {e}")
+    finally:
+        conn.close()
+
+@app.post("/grups/{grup_id}/quitar_admin")
+async def quitar_admin(grup_id: int, request: Request, username: str = Depends(get_current_user)):
+    conn = get_db_connection()
+    if conn is None:
+        raise HTTPException(status_code=500, detail="No es pot connectar a la base de dades")
+
+    try:
+        data = await request.json()
+        usuari_id = data.get("usuari_id")
+
+        if not usuari_id:
+            raise HTTPException(status_code=400, detail="Falta l'ID de l'usuari")
+
+        with conn.cursor() as cursor:
+            # Verificar si el usuario que hace la solicitud es administrador del grupo
+            cursor.execute("""
+                SELECT es_admin 
+                FROM usuaris_grups 
+                WHERE id_usuari = (SELECT id FROM usuarisclase WHERE username = %s) 
+                AND id_grup = %s
+            """, (username, grup_id))
+            es_admin = cursor.fetchone()
+
+            if not es_admin or not es_admin['es_admin']:
+                raise HTTPException(status_code=403, detail="No tens permisos per quitar admin a un usuari")
+
+            # Quitar el rol de admin
+            cursor.execute("""
+                UPDATE usuaris_grups 
+                SET es_admin = FALSE 
+                WHERE id_usuari = %s AND id_grup = %s
+            """, (usuari_id, grup_id))
+            conn.commit()
+
+            return {"success": "L'usuari ja no és admin del grup"}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Error al quitar admin a l'usuari: {e}")
+    finally:
+        conn.close()
+
+@app.post("/grups/{grup_id}/eliminar_usuario")
+async def eliminar_usuario(grup_id: int, request: Request, username: str = Depends(get_current_user)):
+    conn = get_db_connection()
+    if conn is None:
+        raise HTTPException(status_code=500, detail="No es pot connectar a la base de dades")
+
+    try:
+        data = await request.json()
+        usuari_id = data.get("usuari_id")
+
+        if not usuari_id:
+            raise HTTPException(status_code=400, detail="Falta l'ID de l'usuari")
+
+        with conn.cursor() as cursor:
+            # Verificar si el usuario que hace la solicitud es administrador del grupo
+            cursor.execute("""
+                SELECT es_admin 
+                FROM usuaris_grups 
+                WHERE id_usuari = (SELECT id FROM usuarisclase WHERE username = %s) 
+                AND id_grup = %s
+            """, (username, grup_id))
+            es_admin = cursor.fetchone()
+
+            if not es_admin or not es_admin['es_admin']:
+                raise HTTPException(status_code=403, detail="No tens permisos per eliminar usuaris")
+
+            # Eliminar al usuario del grupo
+            cursor.execute("""
+                DELETE FROM usuaris_grups 
+                WHERE id_usuari = %s AND id_grup = %s
+            """, (usuari_id, grup_id))
+            conn.commit()
+
+            return {"success": "L'usuari ha sigut eliminat del grup"}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Error al eliminar l'usuari: {e}")
+    finally:
+        conn.close()

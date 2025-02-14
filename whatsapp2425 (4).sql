@@ -209,7 +209,41 @@ INSERT INTO `usuaris_grups` (`id`, `id_grup`, `id_usuari`, `data_inici`, `usuari
 (41, 19, 1, '2025-02-11 16:27:19', NULL, NULL, 0, NULL),
 (44, 25, 5, '2025-02-11 17:54:15', NULL, NULL, 1, NULL);
 
+-- --------------------------------------------------------
+
 --
+-- Estructura de tabla para la tabla `missatgesgrup`
+--
+
+CREATE TABLE `missatgesgrup` (
+  `id` int(11) NOT NULL,
+  `id_grup` int(11) NOT NULL,
+  `id_usuari` int(11) NOT NULL,
+  `missatge` text NOT NULL,
+  `data_hora` datetime NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Índices para la tabla `missatgesgrup`
+--
+ALTER TABLE `missatgesgrup`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `fk_grup` (`id_grup`),
+  ADD KEY `fk_usuari` (`id_usuari`);
+
+--
+-- AUTO_INCREMENT de la tabla `missatgesgrup`
+--
+ALTER TABLE `missatgesgrup`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- Restricciones para la tabla `missatgesgrup`
+--
+ALTER TABLE `missatgesgrup`
+  ADD CONSTRAINT `fk_grup` FOREIGN KEY (`id_grup`) REFERENCES `grups` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_usuari` FOREIGN KEY (`id_usuari`) REFERENCES `usuarisclase` (`id`) ON DELETE CASCADE;
+
 -- Índices para tablas volcadas
 --
 

@@ -160,19 +160,13 @@ function handleSearch(event) {
 let welcome = document.getElementById('welcome-container');
 
 // Función para cargar chats de un usuario o grupo
-// Función para cargar chats de un usuario específico
-// Función para cargar chats de un usuario o grupo
-// Función para cargar chats de un usuario o grupo
 async function cargarChats(type, id, name) {
-    const welcome = document.getElementById('welcome-container');
     const chatContainer = document.querySelector('.chat-container');
 
     // Ocultar la lista de chats en móviles
     if (window.innerWidth <= 768) {
         chatContainer.classList.add('hide-on-mobile');
         welcome.classList.add('show-on-mobile');
-        
-        
     }
 
     welcome.innerHTML = ''; // Limpiar el contenedor del chat
@@ -211,8 +205,6 @@ async function cargarChats(type, id, name) {
         };
         chatHeader.appendChild(backButton);
     }
-    
-    
 
     if (type === "group") {
         // Contenedor para los botones
@@ -250,7 +242,7 @@ async function cargarChats(type, id, name) {
     chatMessages.id = 'chat-messages-new';
     welcome.appendChild(chatMessages);
 
-        aplicarFondoChat();
+    aplicarFondoChat();
 
     // Input para enviar mensajes
     const chatInput = document.createElement('div');
@@ -269,55 +261,133 @@ async function cargarChats(type, id, name) {
 
     welcome.appendChild(chatInput);
 
-    // Cargar mensajes entre el usuario logueado y el usuario seleccionado
-    try {
-        const response = await fetch(`http://localhost:8000/recibir_missatges?receptor=${id}&emisor=${loggedInUserId}`);
-        if (!response.ok) {
-            throw new Error(`Error ${response.status}: No se pudieron obtener los mensajes.`);
-        }
-
-        const messages = await response.json();
-        console.log("📩 Mensajes recibidos:", messages);
-
-        chatMessages.innerHTML = ''; // Limpiar mensajes previos
-
-        if (messages.length === 0) {
-            chatMessages.innerHTML = "<p>No hay mensajes disponibles.</p>";
-            return;
-        }
-
-        // Ordenar mensajes por fecha
-        messages.sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora));
-
-        messages.forEach(msg => {
-            const messageElement = document.createElement('div');
-            messageElement.className = 'message';
-
-            // Verificar si el mensaje fue enviado por el usuario logueado
-            const isSentByUser = msg.emisor == loggedInUserId;
-
-            if (isSentByUser) {
-                messageElement.classList.add('sent');
-            } else {
-                messageElement.classList.add('received');
+    // Función para cargar mensajes
+    async function cargarMensajes() {
+        try {
+            const token = localStorage.getItem("jwt_token"); // Obtener el token de autenticación
+            const endpoint = type === 'group' ? `recibir_missatges_grup?id_grup=${id}` : `recibir_missatges?receptor=${id}&emisor=${loggedInUserId}`;
+            const response = await fetch(`http://localhost:8000/${endpoint}`, {
+                method: "GET",
+                headers: {
+                    "Authorization": `Bearer ${token}`,
+                    "Content-Type": "application/json"
+                }
+            });
+            if (!response.ok) {
+                throw new Error(`Error ${response.status}: No se pudieron obtener los mensajes.`);
             }
 
-            messageElement.innerHTML = `
-                <strong>${msg.emisor}</strong>: ${msg.missatge} <br>
-                <small>${msg.data_hora}</small>
-            `;
-            chatMessages.appendChild(messageElement);
+            const messages = await response.json();
+            console.log("📩 Mensajes recibidos:", messages);
+
+            chatMessages.innerHTML = ''; // Limpiar mensajes previos
+
+            if (messages.length === 0) {
+                chatMessages.innerHTML = "<p>No hay mensajes disponibles.</p>";
+                return;
+            }
+
+            // Ordenar mensajes por fecha
+            messages.sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora));
+
+            messages.forEach(msg => {
+                const messageElement = document.createElement('div');
+                messageElement.className = 'message';
+
+                // Verificar si el mensaje fue enviado por el usuario logueado
+                const isSentByUser = msg.emisor == loggedInUserId;
+
+                if (isSentByUser) {
+                    messageElement.classList.add('sent');
+                } else {
+                    messageElement.classList.add('received');
+                }
+
+                // Reemplazar 'T' por un espacio en la fecha
+                const formattedDate = msg.data_hora.replace('T', ' ');
+
+                messageElement.innerHTML = `
+                    <strong>${msg.emisor}</strong>: ${msg.missatge} <br>
+                    <small>${formattedDate}</small>
+                `;
+                chatMessages.appendChild(messageElement);
+            });
+
+            // Scroll to the bottom of the chat container
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        } catch (error) {
+            console.error("❌ Error cargando mensajes:", error);
+            chatMessages.innerHTML = `<p style="color:red;">Error cargando mensajes. Inténtalo de nuevo.</p>`;
+        }
+    }
+
+    // Cargar mensajes inicialmente
+    cargarMensajes();
+
+    // Configurar intervalo para recargar mensajes cada segundo
+    //setInterval(cargarMensajes, 1000);
+}
+
+
+async function enviarMensaje(type, id, name) {
+    const messageInput = document.getElementById('message-input-new');
+    const messageText = messageInput.value.trim();
+
+    if (!messageText) {
+        console.warn("⚠️ No se puede enviar un mensaje vacío.");
+        return;
+    }
+
+    const loggedInUser = localStorage.getItem("loggedInUser"); // Obtener el usuario logueado
+
+    if (!loggedInUser) {
+        console.error("No se encontró el usuario logueado.");
+        return;
+    }
+
+    const token = localStorage.getItem("jwt_token"); // Obtener el token de autenticación
+
+    try {
+        const endpoint = type === 'group' ? "enviar_missatge_grup" : "enviar_missatge";
+        const body = type === 'group' ? { id_grup: id, missatge: messageText } : { remitente: loggedInUser, destinatario: id.toString(), mensaje: messageText };
+
+        const response = await fetch(`http://localhost:8000/${endpoint}`, {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${token}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(body)
         });
+
+        if (!response.ok) {
+            throw new Error(`Error ${response.status}: No se pudo enviar el mensaje.`);
+        }
+
+        const result = await response.json();
+        console.log("✅ Mensaje enviado:", result);
+
+        // Limpiar el input de mensaje
+        messageInput.value = '';
+
+        // Añadir el mensaje al chat
+        const chatMessages = document.getElementById('chat-messages-new');
+        const messageElement = document.createElement('div');
+        messageElement.className = 'message sent';
+        messageElement.innerHTML = `
+            <strong>${loggedInUser}</strong>: ${messageText} <br>
+            <small>${new Date().toLocaleString()}</small>
+        `;
+        chatMessages.appendChild(messageElement);
 
         // Scroll to the bottom of the chat container
         chatMessages.scrollTop = chatMessages.scrollHeight;
 
     } catch (error) {
-        console.error("❌ Error cargando mensajes:", error);
-        chatMessages.innerHTML = `<p style="color:red;">Error cargando mensajes. Inténtalo de nuevo.</p>`;
+        console.error("❌ Error enviando mensaje:", error);
     }
 }
-
 
 // Inicializar la lista de chats y asociar el buscador
 document.addEventListener('DOMContentLoaded', () => {
@@ -456,6 +526,7 @@ async function verMiembrosGrupo(grup_id) {
         const existingContainer = document.getElementById('members-container');
         if (existingContainer) {
             existingContainer.remove(); // Cerrar el menú si ya está abierto
+            verMiembrosMenuAbierto = false;
             return;
         }
 
@@ -475,50 +546,133 @@ async function verMiembrosGrupo(grup_id) {
         const membres = await response.json();
         console.log("Miembros del grupo:", membres);
 
+        // Obtener el usuario logueado
+        const loggedInUser = localStorage.getItem("loggedInUser");
+
         // Crear un contenedor para la lista de miembros
         const membersContainer = document.createElement('div');
         membersContainer.id = 'members-container';
 
         // Añadir cada miembro a la lista
         membres.forEach(membre => {
+            console.log("Miembro:", membre);  // Verificar si el id existe
             const memberItem = document.createElement('div');
             memberItem.className = 'member-item';
 
-            // Nombre del usuario en negrita
             const memberName = document.createElement('strong');
             memberName.textContent = `${membre.username} ${membre.es_admin ? '(Admin)' : ''}`;
             memberItem.appendChild(memberName);
 
-            // Botón para hacer admin (solo visible para no administradores)
+            // Botón para hacer admin (solo para no admins)
             if (!membre.es_admin) {
                 const makeAdminButton = document.createElement('button');
                 makeAdminButton.textContent = 'Hacer admin';
+                makeAdminButton.className = 'make-admin-button';
+
                 makeAdminButton.onclick = async () => {
-                    try {
-                        const response = await fetch(`http://localhost:8000/grups/${grup_id}/fer_admin`, {
-                            method: "POST",
-                            headers: {
-                                "Authorization": `Bearer ${token}`,
-                                "Content-Type": "application/json"
-                            },
-                            body: JSON.stringify({ usuari_id: membre.id }) // Asegúrate de que membre.id sea correcto
-                        });
-
-                        if (!response.ok) {
-                            throw new Error(`Error ${response.status}: No autorizado.`);
-                        }
-
-                        const result = await response.json();
-                        console.log("Usuari fet admin:", result);
-                        alert("L'usuari ara és admin del grup");
-                        window.location.reload(); // Recargar la página para actualizar la lista de miembros
-                    } catch (error) {
-                        console.error("Error al fer admin a l'usuari:", error);
-                        alert("Error al fer admin a l'usuari");
+                    if (!membre.id || membre.id === 0) {
+                        console.error("Error: No se encontró el ID del usuario.");
+                        return;
                     }
+
+                    // Enviar la solicitud para hacer admin al usuario
+                    const response = await fetch(`http://localhost:8000/grups/${grup_id}/fer_admin`, {
+                        method: "POST",
+                        headers: {
+                            "Authorization": `Bearer ${token}`,
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({ usuari_id: membre.id })
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(`Error ${response.status}: ${errorData.detail || "No autorizado"}`);
+                    }
+
+                    const result = await response.json();
+                    console.log("Usuari fet admin:", result);
+                    alert("L'usuari ara és admin del grup");
+                    window.location.reload(); // Recargar la página para actualizar la lista de miembros
                 };
 
                 memberItem.appendChild(makeAdminButton);
+            }
+
+            // Botón para quitar el rol de admin (solo para admins y no es el mismo usuario)
+            if (membre.es_admin && membre.username !== loggedInUser) {
+                const removeAdminButton = document.createElement('button');
+                removeAdminButton.textContent = 'Quitar admin';
+                removeAdminButton.className = 'remove-admin-button';
+
+                removeAdminButton.onclick = async () => {
+                    if (!membre.id || membre.id === 0) {
+                        console.error("Error: No se encontró el ID del usuario.");
+                        return;
+                    }
+
+                    // Enviar la solicitud para quitar el rol de admin
+                    const response = await fetch(`http://localhost:8000/grups/${grup_id}/quitar_admin`, {
+                        method: "POST",
+                        headers: {
+                            "Authorization": `Bearer ${token}`,
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({ usuari_id: membre.id })
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(`Error ${response.status}: ${errorData.detail || "No autorizado"}`);
+                    }
+
+                    const result = await response.json();
+                    console.log("Usuari ja no és admin:", result);
+                    alert("L'usuari ja no és admin del grup");
+                    window.location.reload(); // Recargar la página para actualizar la lista de miembros
+                };
+
+                memberItem.appendChild(removeAdminButton);
+            }
+
+            // Botón para eliminar usuario (solo para admins y no es el mismo usuario)
+            if (membre.username !== loggedInUser) {
+                const deleteUserButton = document.createElement('button');
+                deleteUserButton.textContent = 'Eliminar usuario';
+                deleteUserButton.className = 'delete-user-button';
+
+                deleteUserButton.onclick = async () => {
+                    if (!membre.id || membre.id === 0) {
+                        console.error("Error: No se encontró el ID del usuario.");
+                        return;
+                    }
+
+                    // Confirmar antes de eliminar
+                    const confirmacion = confirm(`¿Estás seguro de que quieres eliminar a ${membre.username} del grupo?`);
+                    if (!confirmacion) return;
+
+                    // Enviar la solicitud para eliminar al usuario
+                    const response = await fetch(`http://localhost:8000/grups/${grup_id}/eliminar_usuario`, {
+                        method: "POST",
+                        headers: {
+                            "Authorization": `Bearer ${token}`,
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({ usuari_id: membre.id })
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(`Error ${response.status}: ${errorData.detail || "No autorizado"}`);
+                    }
+
+                    const result = await response.json();
+                    console.log("Usuari eliminat del grup:", result);
+                    alert("L'usuari ha sigut eliminat del grup");
+                    window.location.reload(); // Recargar la página para actualizar la lista de miembros
+                };
+
+                memberItem.appendChild(deleteUserButton);
             }
 
             membersContainer.appendChild(memberItem);
@@ -526,6 +680,40 @@ async function verMiembrosGrupo(grup_id) {
 
         // Insertar la lista de miembros en el documento
         document.body.appendChild(membersContainer);
+
+        // Marcar que el menú está abierto
+        // Marcar que el menú está abierto
+        verMiembrosMenuAbierto = true;
+
+        // Añadir un listener para cerrar la lista de miembros cuando se cambia de pestaña
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'hidden' && verMiembrosMenuAbierto) {
+                const existingContainer = document.getElementById('members-container');
+                if (existingContainer) {
+                    existingContainer.remove(); // Cerrar el menú si está abierto
+                    verMiembrosMenuAbierto = false;
+                }
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        // Limpiar el listener cuando se cierra manualmente la lista de miembros
+        const closeMenu = () => {
+            const existingContainer = document.getElementById('members-container');
+            if (existingContainer) {
+                existingContainer.remove(); // Cerrar el menú si está abierto
+                verMiembrosMenuAbierto = false;
+                document.removeEventListener('visibilitychange', handleVisibilityChange);
+            }
+        };
+
+        // Añadir un botón para cerrar manualmente la lista de miembros
+        const closeButton = document.createElement('button');
+        closeButton.textContent = 'Cerrar';
+        closeButton.className = 'close-button';
+        closeButton.onclick = closeMenu;
+        membersContainer.appendChild(closeButton);
 
     } catch (error) {
         console.error("Error al obtener los miembros del grupo:", error);
@@ -641,6 +829,25 @@ function cargarAjustes() {
         function() { $(this).css('backgroundColor', '#ffc107'); }
     ).on('click', mostrarDesplegableFondos);
 
+    const savedFontSize = localStorage.getItem('fontSize') || 'normal';
+    const fontSizeLabel = $('<label>', { text: 'Tamaño Mensajes:', for: 'font-size-select' }).css({
+        marginTop: '20px',
+        fontSize: '16px',
+        fontWeight: 'bold'
+    });
+    const fontSizeSelect = $('<select>', { id: 'font-size-select' }).css({
+        padding: '10px',
+        borderRadius: '5px',
+        border: '1px solid #ccc',
+        marginTop: '10px',
+        fontSize: '16px'
+    }).append(
+        $('<option>', { value: 'small', text: 'Small' }),
+        $('<option>', { value: 'normal', text: 'Normal' }),
+        $('<option>', { value: 'big', text: 'Big' }),
+        $('<option>', { value: 'very-big', text: 'Very Big' })
+    ).val(savedFontSize).on('change', ajustarTamanoFuente);
+
     const logoutButton = $('<button>', { text: 'Cerrar Sesión' }).css({
         padding: '10px 20px',
         fontSize: '16px',
@@ -657,7 +864,7 @@ function cargarAjustes() {
         function() { $(this).css('backgroundColor', '#dc3545'); }
     ).on('click', cerrarSesion);
 
-    ajustesContainer.append(backButton, darkModeButton, highContrastButton, changeBackgroundButton, logoutButton);
+    ajustesContainer.append(backButton, darkModeButton, highContrastButton, changeBackgroundButton, fontSizeLabel, fontSizeSelect, logoutButton);
     welcome.append(ajustesContainer);
 
     // Trigger the fade-in effect
@@ -665,6 +872,50 @@ function cargarAjustes() {
         ajustesContainer.css('opacity', '1');
     }, 0);
 }
+
+function ajustarTamanoFuente() {
+    const fontSize = $('#font-size-select').val();
+    let size;
+
+    switch (fontSize) {
+        case 'small':
+            size = '12px';
+            break;
+        case 'normal':
+            size = '16px';
+            break;
+        case 'big':
+            size = '20px';
+            break;
+        case 'very-big':
+            size = '24px';
+            break;
+        default:
+            size = '16px';
+    }
+
+    $('body').css('font-size', size);
+    $('#chat-list').css('font-size', size); // Change font size of chat list
+    $('#chat-list .chat-item').css('font-size', size); // Change font size of chat list items
+    $('#chat-list .chat-item .username').css('font-size', size); // Change font size of usernames in chat list
+    $('#chat-list .new-group-button').css('font-size', size); // Change font size of "Crear nuevo grupo" button
+    localStorage.setItem('fontSize', fontSize);
+}
+
+function aplicarTamanoFuenteGuardado() {
+    const savedFontSize = localStorage.getItem('fontSize') || 'normal';
+    ajustarTamanoFuente(savedFontSize);
+}
+
+// Call this function on page load to apply the saved font size
+document.addEventListener('DOMContentLoaded', () => {
+    aplicarTamanoFuenteGuardado();
+    mostrarChats(); // Mostrar todos los usuarios y grupos al inicio
+
+    // Asociar la barra de búsqueda
+    const searchInput = document.getElementById('search');
+    searchInput.addEventListener('input', handleSearch);
+});
 
 let fondoContainerExists = false;
 
@@ -852,22 +1103,19 @@ async function enviarMensaje(type, id, name) {
         return;
     }
 
-    
-
     const token = localStorage.getItem("jwt_token"); // Obtener el token de autenticación
 
     try {
-        const response = await fetch("http://localhost:8000/enviar_missatge", {
+        const endpoint = type === 'group' ? "enviar_missatge_grup" : "enviar_missatge";
+        const body = type === 'group' ? { id_grup: id, missatge: messageText } : { remitente: loggedInUser, destinatario: id.toString(), mensaje: messageText };
+
+        const response = await fetch(`http://localhost:8000/${endpoint}`, {
             method: "POST",
             headers: {
                 "Authorization": `Bearer ${token}`,
                 "Content-Type": "application/json"
             },
-            body: JSON.stringify({
-                remitente: loggedInUser,
-                destinatario: id.toString(), // Ensure destinatario is a string
-                mensaje: messageText
-            })
+            body: JSON.stringify(body)
         });
 
         if (!response.ok) {
@@ -880,8 +1128,18 @@ async function enviarMensaje(type, id, name) {
         // Limpiar el input de mensaje
         messageInput.value = '';
 
-        // Recargar los mensajes del chat
-        cargarChats(type, id, name);
+        // Añadir el mensaje al chat
+        const chatMessages = document.getElementById('chat-messages-new');
+        const messageElement = document.createElement('div');
+        messageElement.className = 'message sent';
+        messageElement.innerHTML = `
+            <strong>${loggedInUser}</strong>: ${messageText} <br>
+            <small>${new Date().toLocaleString()}</small>
+        `;
+        chatMessages.appendChild(messageElement);
+
+        // Scroll to the bottom of the chat container
+        chatMessages.scrollTop = chatMessages.scrollHeight;
 
     } catch (error) {
         console.error("❌ Error enviando mensaje:", error);
