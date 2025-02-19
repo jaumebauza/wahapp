@@ -30,6 +30,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def verify_token(token: str = Depends(oauth2_scheme)):
@@ -41,7 +43,11 @@ def verify_token(token: str = Depends(oauth2_scheme)):
         return username
     except JWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expirado o inválido")
-    
+
+
+class MarcarMensajesRequest(BaseModel):
+    receptor: int
+    emisor: int
 
 class Mensaje(BaseModel):
     remitente: str
@@ -173,14 +179,37 @@ def llista_amics(username: str = Depends(get_current_user)):
             amics = cursor.fetchall()
             amics_dict = [{"type": "user", "id": amic['id'], "username": amic['username']} for amic in amics]
 
-        return amics_dict + grups_dict  # Devuelve usuarios y grupos
+            # Obtener la fecha del último mensaje para cada usuario y grupo
+            for item in amics_dict + grups_dict:
+                if item['type'] == 'user':
+                    # Para usuarios, obtener el último mensaje entre el usuario logueado y el amigo
+                    cursor.execute("""
+                        SELECT MAX(data_hora) as last_message
+                        FROM missatgesamics
+                        WHERE (emisor = %s AND receptor = %s) OR (emisor = %s AND receptor = %s)
+                    """, (user_id, item['id'], item['id'], user_id))
+                else:
+                    # Para grupos, obtener el último mensaje en el grupo
+                    cursor.execute("""
+                        SELECT MAX(data_hora) as last_message
+                        FROM missatgesgrup
+                        WHERE id_grup = %s
+                    """, (item['id'],))
+                
+                last_message = cursor.fetchone()['last_message']
+                item['last_message'] = last_message if last_message else datetime.min  # Si no hay mensajes, usar una fecha mínima
+
+        # Ordenar la lista por la fecha del último mensaje (de más reciente a más antiguo)
+        sorted_list = sorted(amics_dict + grups_dict, key=lambda x: x['last_message'], reverse=True)
+
+        return sorted_list  # Devuelve usuarios y grupos ordenados por último mensaje
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al obtener la lista: {e}")
     finally:
         conn.close()
 
 @app.get("/recibir_missatges")
-def recibir_missatges(receptor: int, emisor: Optional[str] = None):
+def recibir_missatges(receptor: int, emisor: Optional[str] = None, offset: int = 0, limit: int = 10):
     try:
         conn = get_db_connection()
         if conn is None:
@@ -188,10 +217,10 @@ def recibir_missatges(receptor: int, emisor: Optional[str] = None):
 
         cursor = conn.cursor()
 
-        print(f"🔍 Parámetros recibidos - Receptor: {receptor}, Emisor: {emisor}")  # Depuración
+        print(f"🔍 Parámetros recibidos - Receptor: {receptor}, Emisor: {emisor}, Offset: {offset}, Limit: {limit}")  # Depuración
 
         query = """
-            SELECT m.id, u1.username as emisor, u2.username as receptor, m.missatge, m.data_hora 
+            SELECT m.id, u1.username as emisor, u2.username as receptor, m.missatge, m.data_hora, m.estat 
             FROM missatgesamics m
             JOIN usuarisclase u1 ON m.emisor = u1.id
             JOIN usuarisclase u2 ON m.receptor = u2.id
@@ -203,7 +232,8 @@ def recibir_missatges(receptor: int, emisor: Optional[str] = None):
             query += " AND (u1.username = %s OR u2.username = %s)"
             params += (emisor, emisor)
 
-        query += " ORDER BY m.data_hora DESC"
+        query += " ORDER BY m.data_hora DESC LIMIT %s OFFSET %s"
+        params += (limit, offset)
 
         print(f"📝 SQL: {query}")  # Depuración
         print(f"📌 Parámetros: {params}")  # Depuración
@@ -237,7 +267,8 @@ def recibir_missatges(receptor: int, emisor: Optional[str] = None):
                     "emisor": msg['emisor'],
                     "receptor": msg['receptor'],
                     "missatge": msg['missatge'],
-                    "data_hora": data_hora
+                    "data_hora": data_hora,
+                    "estat": msg['estat']
                 })
             except Exception as e:
                 print(f"❌ Error al procesar el mensaje: {e}")
@@ -248,6 +279,7 @@ def recibir_missatges(receptor: int, emisor: Optional[str] = None):
             return []
 
         print(f"✅ Mensajes procesados correctamente: {messages_list}")
+
         return messages_list
 
     except Exception as e:
@@ -373,18 +405,127 @@ def consultar_grups():
         conn.close()
         raise HTTPException(status_code=500, detail=f"Error al consultar els grups: {e}")
     
+@app.post("/marcar_mensajes_como_leidos")
+def marcar_mensajes_como_leidos(request: MarcarMensajesRequest, username: str = Depends(get_current_user)):
+    conn = get_db_connection()
+    if conn is None:
+        raise HTTPException(status_code=500, detail="No se puede conectar a la base de datos")
+
+    try:
+        cursor = conn.cursor()
+
+        # Obtener el ID del usuario logueado (receptor)
+        cursor.execute("SELECT id FROM usuarisclase WHERE username = %s", (username,))
+        loggedInUserId = cursor.fetchone()['id']
+
+        # Verificar que se ha recibido un emisor y receptor correctos
+        if not request.emisor or not request.receptor:
+            raise HTTPException(status_code=400, detail="Faltan los parámetros emisor o receptor")
+
+        emisor_id = request.emisor
+        receptor_id = request.receptor
+
+        # Evitar que el usuario marque sus propios mensajes como leídos
+        if emisor_id == loggedInUserId:
+            raise HTTPException(status_code=400, detail="No puedes marcar tus propios mensajes como leídos")
+
+        print(f"📌 Intentando marcar como leído mensajes de {emisor_id} a {loggedInUserId}")
+
+        # Verificar cuántos mensajes están en estado 'enviat' antes de actualizarlos
+        cursor.execute("""
+            SELECT COUNT(*) as total
+            FROM missatgesamics
+            WHERE emisor = %s AND receptor = %s AND estat = 'enviat'
+        """, (emisor_id, loggedInUserId))
+
+        mensajes_pendientes = cursor.fetchone()['total']
+        if mensajes_pendientes == 0:
+            raise HTTPException(status_code=404, detail="No hay mensajes pendientes para marcar como leídos")
+
+        # Actualizar los mensajes como leídos
+        query = """
+            UPDATE missatgesamics 
+            SET estat = 'llegit' 
+            WHERE emisor = %s AND receptor = %s AND estat = 'enviat'
+        """
+        cursor.execute(query, (emisor_id, loggedInUserId))
+        affected_rows = cursor.rowcount
+        conn.commit()
+
+        if affected_rows == 0:
+            raise HTTPException(status_code=500, detail="No se pudieron actualizar los mensajes")
+
+        return {"success": f"{affected_rows} mensajes marcados como leídos correctamente"}
+
+    except Exception as e:
+        conn.rollback()
+        print(f"❌ Error al marcar mensajes como leídos: {e}")
+        raise HTTPException(status_code=500, detail=f"Error al marcar los mensajes como leídos: {str(e)}")
+    finally:
+        cursor.close()
+        conn.close()
+
+
+
+@app.get("/obtener_id_usuario")
+def obtener_id_usuario(username: str = Depends(get_current_user)):
+    conn = get_db_connection()
+    if conn is None:
+        raise HTTPException(status_code=500, detail="No es pot connectar a la base de dades")
+
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT id FROM usuarisclase WHERE username = %s", (username,))
+            user = cursor.fetchone()
+            if not user:
+                raise HTTPException(status_code=404, detail="Usuario no encontrado")
+            return {"id": user['id']}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al obtener el ID del usuario: {e}")
+    finally:
+        conn.close()
+
+    
+@app.post("/marcar_mensajes_como_leidos_grup")
+def marcar_mensajes_como_leidos_grup(id_grup: int, username: str = Depends(get_current_user)):
+    conn = get_db_connection()
+    if conn is None:
+        raise HTTPException(status_code=500, detail="No es pot connectar a la base de dades")
+
+    try:
+        cursor = conn.cursor()
+        # Obtener el ID del usuario logueado
+        cursor.execute("SELECT id FROM usuarisclase WHERE username = %s", (username,))
+        loggedInUserId = cursor.fetchone()['id']
+
+        # Actualizar todos los mensajes no leídos en el grupo
+        query = """
+            UPDATE missatgesgrup 
+            SET estat = 'llegit' 
+            WHERE id_grup = %s AND estat = 'enviat'
+        """
+        cursor.execute(query, (id_grup,))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return {"success": "Missatges marcats com a llegits correctament"}
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        raise HTTPException(status_code=500, detail=f"Error al marcar els missatges com a llegits: {e}")
+
+
 @app.post("/check")
 def check_missatge(id_missatge: int, estat: str):
     """
     Endpoint per actualitzar l'estat d'un missatge.
     Estat pot ser:
     - 'enviat': un check gris
-    - 'rebut': dos checks grisos
     - 'llegit': dos checks blaus
     """
-    if estat not in ["enviat", "rebut", "llegit"]:
+    if estat not in ["enviat", "llegit"]:
         raise HTTPException(
-            status_code=400, detail="Estat no vàlid. Usa 'enviat', 'rebut' o 'llegit'."
+            status_code=400, detail="Estat no vàlid. Usa 'enviat' o 'llegit'."
         )
     
     conn = get_db_connection()
@@ -403,7 +544,7 @@ def check_missatge(id_missatge: int, estat: str):
         conn.rollback()
         conn.close()
         raise HTTPException(status_code=500, detail=f"Error al actualitzar l'estat: {e}")
-
+    
 @app.post("/abandonar_grup")
 def abandonar_grup(request: AbandonarGrupRequest):
     conn = get_db_connection()
@@ -550,7 +691,7 @@ def enviar_missatge_grup(mensaje: MensajeGrup, username: str = Depends(get_curre
         conn.close()
 
 @app.get("/recibir_missatges_grup")
-def recibir_missatges_grup(id_grup: int, username: str = Depends(get_current_user)):
+def recibir_missatges_grup(id_grup: int, last_message_timestamp: Optional[str] = None, username: str = Depends(get_current_user)):
     conn = get_db_connection()
     if conn is None:
         raise HTTPException(status_code=500, detail="No es pot connectar a la base de dades")
@@ -563,15 +704,22 @@ def recibir_missatges_grup(id_grup: int, username: str = Depends(get_current_use
         if not cursor.fetchone():
             raise HTTPException(status_code=403, detail="No tens permisos per veure els missatges d'aquest grup")
 
-        # Obtener los mensajes del grupo
+        # Obtener los mensajes del grupo que son más recientes que el último mensaje recibido
         query = """
             SELECT mg.id, u.username as emisor, mg.missatge, mg.data_hora 
             FROM missatgesgrup mg
             JOIN usuarisclase u ON mg.id_usuari = u.id
             WHERE mg.id_grup = %s
-            ORDER BY mg.data_hora ASC
         """
-        cursor.execute(query, (id_grup,))
+        params = [id_grup]
+
+        if last_message_timestamp:
+            query += " AND mg.data_hora > %s"
+            params.append(last_message_timestamp)
+
+        query += " ORDER BY mg.data_hora ASC"
+
+        cursor.execute(query, tuple(params))
         missatges = cursor.fetchall()
 
         return missatges

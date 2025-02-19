@@ -39,6 +39,29 @@ body.dark-mode .container {
     background-color: #1e1e1e;
 }
 
+.mark-as-read-button {
+    background-color: #28a745; /* Verde bonito */
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 20px; /* Bordes redondeados */
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
+    transition: background-color 0.3s, transform 0.2s;
+}
+
+.mark-as-read-button:hover {
+    background-color: #218838; /* Verde más oscuro al pasar el mouse */
+    transform: scale(1.05); /* Efecto de agrandar */
+}
+
+.mark-as-read-button:active {
+    transform: scale(0.95); /* Efecto de presionar */
+}
+
+
 body.high-contrast .container {
     background-color: #000;
     color: #fff;
@@ -245,16 +268,23 @@ body.high-contrast .chat-button {
     font-weight: bold;
 }
 
+
+
+
+
 #chat-messages-new {
     flex: 1;
     padding: 10px;
     overflow-y: auto;
-    scrollbar-width: thin; /* For Firefox */
-    scrollbar-color: #888 #f0f0f0; /* For Firefox */
-    margin-right: 0px; /* Adjust margin to move scrollbar closer to the right edge */
+    overflow-x: hidden; /* Evita desplazamiento lateral */
+    scrollbar-width: thin; /* Firefox */
+    scrollbar-color: #888 #f0f0f0; /* Firefox */
     display: flex;
     flex-direction: column;
-    width: 1200px;
+    width: 90%; /* Ocupar todo el ancho disponible */
+    max-width: 1200px; /* Máximo ancho en pantallas grandes */
+    margin: auto; /* Centrar el contenedor */
+    height: calc(100vh - 160px); /* Ajustar la altura según el tamaño de pantalla */
 }
 
 #chat-messages-new::-webkit-scrollbar {
@@ -681,10 +711,27 @@ body.high-contrast .new-group-button:active {
 
 @media (max-width: 768px) {
     #chat-messages-new {
-        width: 100%; /* Ocupar todo el ancho disponible */
-        max-width: 100%;
-        padding: 5px; /* Reducir padding en móviles */
+        width: 90%; /* Ocupar todo el ancho disponible */
+        max-width: 100%; /* Evitar que sea demasiado grande */
+        padding: 5px; /* Reducir padding */
+        margin-left: auto;
+        margin-right: auto;
+        height: calc(100vh - 150px); /* Ajustar la altura para que no quede cortado */
     }
+
+    #chat-messages-new::-webkit-scrollbar {
+        width: 8px; /* For Chrome, Safari, and Opera */
+    }
+    
+    #chat-messages-new::-webkit-scrollbar-track {
+        background: #f0f0f0; /* For Chrome, Safari, and Opera */
+    }
+    
+    #chat-messages-new::-webkit-scrollbar-thumb {
+        background-color: #888; /* For Chrome, Safari, and Opera */
+        border-radius: 10px; /* For Chrome, Safari, and Opera */
+    }
+
     .form-container {
         width: 90%;
         padding: 15px;

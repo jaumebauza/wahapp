@@ -59,6 +59,35 @@ async function obtenerUsuariosYGrupos() {
         console.error("❌ Error obteniendo usuarios y grupos:", error);
     }
 }
+
+function actualizarListaChats() {
+    mostrarChats(); // Llamar a la función para mostrar los chats
+}
+
+// Función para actualizar los mensajes del chat actual periódicamente
+function actualizarMensajesChatActual() {
+    const chatHeader = document.getElementById('chat-header-new');
+    if (chatHeader) {
+        const type = chatHeader.getAttribute('data-type');
+        const id = chatHeader.getAttribute('data-id');
+        cargarMensajes(); // Llamar a la función para cargar los mensajes del chat actual
+    }
+}
+
+// Inicializar la lista de chats y asociar el buscador
+document.addEventListener('DOMContentLoaded', () => {
+    mostrarChats(); // Mostrar todos los usuarios y grupos al inicio
+    cargarBienvenida(); // Mostrar la bienvenida inicial
+
+    // Asociar la barra de búsqueda
+    const searchInput = document.getElementById('search');
+    searchInput.addEventListener('input', handleSearch);
+
+    // Establecer intervalos para actualizar la lista de chats y los mensajes del chat actual
+    setInterval(actualizarListaChats, 3000); // Actualizar la lista de chats cada 3 segundos
+    setInterval(actualizarMensajesChatActual, 3000); // Actualizar los mensajes del chat actual cada 3 segundos
+});
+
 // Función para cargar usuarios y grupos, y mostrarlos
 async function mostrarChats(filter = '') {
     const token = localStorage.getItem("jwt_token");
@@ -159,22 +188,21 @@ function handleSearch(event) {
 
 let welcome = document.getElementById('welcome-container');
 
-// Función para cargar chats de un usuario o grupo
 async function cargarChats(type, id, name) {
     const chatContainer = document.querySelector('.chat-container');
+    const welcome = document.getElementById('welcome-container');
 
-    // Ocultar la lista de chats en móviles
     if (window.innerWidth <= 768) {
         chatContainer.classList.add('hide-on-mobile');
         welcome.classList.add('show-on-mobile');
     }
 
-    welcome.innerHTML = ''; // Limpiar el contenedor del chat
+    welcome.innerHTML = '';
 
-    const loggedInUserId = localStorage.getItem("loggedInUser"); // Obtener el ID del usuario logueado
+    const loggedInUser = localStorage.getItem("loggedInUser");
 
-    if (!loggedInUserId) {
-        console.error("No se encontró el ID del usuario logueado.");
+    if (!loggedInUser) {
+        console.error("No se encontró el usuario logueado.");
         return;
     }
 
@@ -193,13 +221,21 @@ async function cargarChats(type, id, name) {
     chatUsername.textContent = name;
     chatHeader.appendChild(chatUsername);
 
+    // Botón para marcar como leído
+    const markAsReadButton = document.createElement('button');
+    markAsReadButton.textContent = 'Marcar como leído';
+    markAsReadButton.className = 'mark-as-read-button';
+    markAsReadButton.style.marginLeft = '10px'; // Añadir margen izquierdo
+    markAsReadButton.onclick = () => marcarChatComoLeido(type, id);
+    chatHeader.appendChild(markAsReadButton);
+
+    // Botón de volver en pantallas pequeñas
     if (window.innerWidth <= 768) {
-        // Botón para volver a la lista de chats en móviles
         const backButton = document.createElement('button');
         backButton.textContent = 'Volver';
         backButton.className = 'back-button';
         backButton.onclick = () => {
-            welcome.innerHTML = ''; // Limpiar el chat
+            welcome.innerHTML = '';
             welcome.classList.remove('show-on-mobile');
             chatContainer.classList.remove('hide-on-mobile');
         };
@@ -240,9 +276,10 @@ async function cargarChats(type, id, name) {
     // Contenedor de mensajes
     const chatMessages = document.createElement('div');
     chatMessages.id = 'chat-messages-new';
+    chatMessages.style.overflowY = 'auto';
+    chatMessages.style.height = '70vh';
+    chatMessages.style.touchAction = 'pan-y'; // Evita gestos de desplazamiento conflictivos
     welcome.appendChild(chatMessages);
-
-    aplicarFondoChat();
 
     // Input para enviar mensajes
     const chatInput = document.createElement('div');
@@ -261,11 +298,26 @@ async function cargarChats(type, id, name) {
 
     welcome.appendChild(chatInput);
 
-    // Función para cargar mensajes
-    async function cargarMensajes() {
+    // Variables para la paginación
+    let offset = 0;
+    const limit = 10;
+    let loading = false;
+
+    async function cargarMensajes(more = false) {
+        if (loading) return;
+        loading = true;
+    
         try {
-            const token = localStorage.getItem("jwt_token"); // Obtener el token de autenticación
-            const endpoint = type === 'group' ? `recibir_missatges_grup?id_grup=${id}` : `recibir_missatges?receptor=${id}&emisor=${loggedInUserId}`;
+            const token = localStorage.getItem("jwt_token");
+            if (!token) {
+                console.error("No se encontró el token.");
+                return;
+            }
+    
+            const endpoint = type === 'group'
+                ? `recibir_missatges_grup?id_grup=${id}&offset=${offset}&limit=${limit}`
+                : `recibir_missatges?receptor=${id}&emisor=${loggedInUser}&offset=${offset}&limit=${limit}`;
+    
             const response = await fetch(`http://localhost:8000/${endpoint}`, {
                 method: "GET",
                 headers: {
@@ -273,61 +325,177 @@ async function cargarChats(type, id, name) {
                     "Content-Type": "application/json"
                 }
             });
+    
             if (!response.ok) {
                 throw new Error(`Error ${response.status}: No se pudieron obtener los mensajes.`);
             }
-
+    
             const messages = await response.json();
             console.log("📩 Mensajes recibidos:", messages);
-
-            chatMessages.innerHTML = ''; // Limpiar mensajes previos
-
-            if (messages.length === 0) {
+    
+            if (messages.length === 0 && offset === 0) {
                 chatMessages.innerHTML = "<p>No hay mensajes disponibles.</p>";
                 return;
             }
-
-            // Ordenar mensajes por fecha
+    
+            const scrollHeightBefore = chatMessages.scrollHeight;
+            const scrollBottomBefore = chatMessages.scrollTop;
+    
             messages.sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora));
-
+    
             messages.forEach(msg => {
                 const messageElement = document.createElement('div');
                 messageElement.className = 'message';
-
-                // Verificar si el mensaje fue enviado por el usuario logueado
-                const isSentByUser = msg.emisor == loggedInUserId;
-
-                if (isSentByUser) {
-                    messageElement.classList.add('sent');
-                } else {
-                    messageElement.classList.add('received');
-                }
-
-                // Reemplazar 'T' por un espacio en la fecha
+    
+                const isSentByUser = msg.emisor == loggedInUser;
+                messageElement.classList.add(isSentByUser ? 'sent' : 'received');
+    
                 const formattedDate = msg.data_hora.replace('T', ' ');
-
+                let estadoIcon = '';
+    
+                if (isSentByUser) {
+                    estadoIcon = msg.estat === 'enviat' ? '✔️' : msg.estat === 'llegit' ? '✔️✔️' : '';
+                }
+    
                 messageElement.innerHTML = `
                     <strong>${msg.emisor}</strong>: ${msg.missatge} <br>
-                    <small>${formattedDate}</small>
+                    <small>${formattedDate} ${estadoIcon}</small>
                 `;
-                chatMessages.appendChild(messageElement);
+    
+                if (more) {
+                    chatMessages.prepend(messageElement);
+                } else {
+                    chatMessages.appendChild(messageElement);
+                }
             });
-
-            // Scroll to the bottom of the chat container
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-
+    
+            if (more) {
+                chatMessages.scrollTop = scrollBottomBefore + (chatMessages.scrollHeight - scrollHeightBefore);
+            } else {
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+    
+            offset += limit;
         } catch (error) {
             console.error("❌ Error cargando mensajes:", error);
-            chatMessages.innerHTML = `<p style="color:red;">Error cargando mensajes. Inténtalo de nuevo.</p>`;
+        } finally {
+            loading = false;
         }
     }
 
-    // Cargar mensajes inicialmente
     cargarMensajes();
+    setupScroll(chatMessages, cargarMensajes);
 
-    // Configurar intervalo para recargar mensajes cada segundo
-    //setInterval(cargarMensajes, 1000);
+    function setupScroll(chatMessages, cargarMensajes) {
+        let lastScrollTop = chatMessages.scrollTop; // Guardar posición inicial
+    
+        chatMessages.addEventListener("scroll", function () {
+            if (chatMessages.scrollTop < lastScrollTop && chatMessages.scrollTop <= 10) {
+                console.log("🔄 Cargando más mensajes...");
+                cargarMensajes(true);
+            }
+            lastScrollTop = chatMessages.scrollTop;
+        });
+    
+        chatMessages.addEventListener("touchmove", function () {
+            if (chatMessages.scrollTop <= 10) {
+                console.log("📲 Cargando más mensajes en móvil...");
+                cargarMensajes(true);
+            }
+        });
+    }
 }
+
+
+
+
+
+
+
+// Función para marcar todo el chat como leído
+async function marcarChatComoLeido(type, id) {
+    const token = localStorage.getItem("jwt_token");
+    const loggedInUser = localStorage.getItem("loggedInUser");
+
+    if (!token || !loggedInUser) {
+        console.error("No se encontró el token o el usuario logueado.");
+        return;
+    }
+
+    try {
+        // Obtener el ID del usuario logueado
+        const responseUser = await fetch("http://localhost:8000/obtener_id_usuario", {
+            method: "GET",
+            headers: {
+                "Authorization": `Bearer ${token}`,
+                "Content-Type": "application/json"
+            }
+        });
+
+        if (!responseUser.ok) {
+            throw new Error("No se pudo obtener el ID del usuario logueado.");
+        }
+
+        const userData = await responseUser.json();
+        const loggedInUserId = userData.id; // Suponiendo que el servidor devuelve { "id": 3 }
+
+        const endpoint = type === 'group' 
+            ? `marcar_mensajes_como_leidos_grup?id_grup=${id}` 
+            : `marcar_mensajes_como_leidos`;
+
+        const receptorId = parseInt(id, 10);  // Convertir `id` a número
+
+        console.log(`📢 Usuario logueado: ${loggedInUser} (ID: ${loggedInUserId})`);
+        console.log(`📢 ID del receptor: ${receptorId}`);
+
+        // Crear el cuerpo de la solicitud basado en el tipo
+        const body = type === 'group' 
+            ? { id_grup: receptorId } 
+            : { receptor: loggedInUserId, emisor: receptorId };  // Corregido: emisor y receptor invertidos
+
+        console.log("📦 Enviando solicitud para marcar mensajes como leídos:", body);
+
+        // Enviar la solicitud al endpoint correspondiente
+        const response = await fetch(`http://localhost:8000/${endpoint}`, {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${token}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(body)
+        });
+
+        if (!response.ok) {
+            throw new Error(`Error ${response.status}: No se pudieron marcar los mensajes como leídos.`);
+        }
+
+        const result = await response.json();
+        console.log("✅ Mensajes marcados como leídos:", result);
+
+        // Recargar mensajes y actualizar la vista
+        setTimeout(() => {
+            cargarMensajes();  // Recargar mensajes después de la actualización
+
+            // Actualizar la vista de los mensajes para marcar los leídos
+            actualizarVistaMensajes(receptorId);  // Corregido: cambiar ID de receptor
+        }, 500);
+
+    } catch (error) {
+        console.error("❌ Error marcando mensajes como leídos:", error);
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 async function enviarMensaje(type, id, name) {
@@ -552,6 +720,27 @@ async function verMiembrosGrupo(grup_id) {
         // Crear un contenedor para la lista de miembros
         const membersContainer = document.createElement('div');
         membersContainer.id = 'members-container';
+
+        // Añadir estilos al contenedor
+        membersContainer.style.position = 'fixed';
+        membersContainer.style.backgroundColor = '#fff';
+        membersContainer.style.border = '1px solid #ccc';
+        membersContainer.style.padding = '10px';
+        membersContainer.style.zIndex = '1000';
+        membersContainer.style.maxHeight = '300px';
+        membersContainer.style.overflowY = 'auto';
+
+        // Verificar el tamaño de la pantalla
+        if (window.innerWidth <= 768) { // Pantalla pequeña (menos de 768px)
+            membersContainer.style.top = '210px'; // Ajusta la posición vertical
+            membersContainer.style.left = '75%'; // Centra horizontalmente
+            membersContainer.style.transform = 'translateX(-50%)'; // Asegura el centrado
+            
+        } else { // Pantalla grande
+            membersContainer.style.top = '120px';
+            membersContainer.style.left = '87%';
+            membersContainer.style.transform = 'translateX(-50%)';
+        }
 
         // Añadir cada miembro a la lista
         membres.forEach(membre => {

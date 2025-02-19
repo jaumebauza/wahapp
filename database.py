@@ -1,7 +1,8 @@
 import pymysql
 
-host = 'localhost'
-user = 'root'
+host = '192.168.193.133'
+user = 'pereserra'
+password = '20550359C'
 database = 'wahap'
 
 def get_db_connection():
@@ -9,6 +10,7 @@ def get_db_connection():
         connection = pymysql.connect(
             host=host,
             user=user,
+            password=password,
             database=database
         )
         return connection
